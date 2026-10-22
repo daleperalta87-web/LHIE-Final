@@ -1,0 +1,244 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Shared Health Record EMR Integration API",
+    "version": "1.0.0",
+    "description": "API for EMR backends to search shared patients, send referrals, exchange back-referrals, and read FHIR R4 patient records. All API keys in the demo seed data are public demo credentials only."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3000",
+      "description": "Local demo server"
+    }
+  ],
+  "tags": [
+    { "name": "EMR integration" },
+    { "name": "FHIR R4" }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": ["EMR integration"],
+        "summary": "Check API and database availability",
+        "responses": {
+          "200": {
+            "description": "Service and database are available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["status", "service", "fhirVersion"],
+                  "properties": {
+                    "status": { "const": "ok" },
+                    "service": { "const": "shared-health-record" },
+                    "fhirVersion": { "const": "4.0.1" }
+                  }
+                }
+              }
+            }
+          },
+          "500": { "description": "Database is unavailable" }
+        }
+      }
+    },
+    "/api/patients/search": {
+      "get": {
+        "tags": ["EMR integration"],
+        "summary": "Search patients already present in the SHR",
+        "security": [{ "EmrApiKey": [] }],
+        "parameters": [
+          { "name": "q", "in": "query", "required": true, "schema": { "type": "string", "minLength": 2 }, "description": "Patient name, PhilSys ID, or FHIR patient ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching shared patients",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/PatientMatch" } } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/patients/{philsysId}/record": {
+      "get": {
+        "tags": ["EMR integration"],
+        "summary": "Read a patient's shared FHIR record",
+        "security": [{ "EmrApiKey": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/PhilSysId" }],
+        "responses": {
+          "200": { "description": "FHIR searchset Bundle", "content": { "application/fhir+json": { "schema": { "$ref": "#/components/schemas/Bundle" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "description": "Patient is not in PhilSys registry" }
+        }
+      }
+    },
+    "/api/inbox": {
+      "get": {
+        "tags": ["EMR integration"],
+        "summary": "List referrals addressed to this EMR",
+        "security": [{ "EmrApiKey": [] }],
+        "responses": { "200": { "description": "Referral inbox", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Referral" } } } } } }
+      }
+    },
+    "/api/outbox": {
+      "get": {
+        "tags": ["EMR integration"],
+        "summary": "List referrals sent by this EMR",
+        "security": [{ "EmrApiKey": [] }],
+        "responses": { "200": { "description": "Referral outbox", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Referral" } } } } } }
+      }
+    },
+    "/api/referrals": {
+      "post": {
+        "tags": ["EMR integration"],
+        "summary": "Send a patient referral",
+        "security": [{ "EmrApiKey": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReferralRequest" }, "example": { "patientPhilsysId": "2345-6789-0123-4567", "toEmr": "EMR2", "practitionerNhwr": "NHWR-1001", "reason": "Needs specialist assessment", "service": "Specialist consult", "priority": "urgent" } } } },
+        "responses": {
+          "201": { "description": "Referral accepted and stored" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "422": { "description": "Referral rejected by registry or FHIR validation" }
+        }
+      }
+    },
+    "/api/referrals/{referralId}/receive": {
+      "post": {
+        "tags": ["EMR integration"],
+        "summary": "Mark an incoming referral as received",
+        "security": [{ "EmrApiKey": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ReferralId" }],
+        "responses": { "200": { "description": "Referral marked received" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "409": { "description": "Referral is not available for this EMR" } }
+      }
+    },
+    "/api/referrals/{referralId}/back-referral": {
+      "post": {
+        "tags": ["EMR integration"],
+        "summary": "Send findings and follow-up for a received referral",
+        "security": [{ "EmrApiKey": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ReferralId" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BackReferralRequest" } } } },
+        "responses": { "201": { "description": "Back-referral accepted and stored" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "422": { "description": "Referral rejected by validation" } }
+      }
+    },
+    "/fhir/metadata": {
+      "get": {
+        "tags": ["FHIR R4"],
+        "summary": "Get the FHIR R4 server capability statement",
+        "responses": {
+          "200": {
+            "description": "FHIR CapabilityStatement",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "resourceType": { "const": "CapabilityStatement" },
+                    "fhirVersion": { "const": "4.0.1" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fhir/{resourceType}/{id}": {
+      "get": {
+        "tags": ["FHIR R4"],
+        "summary": "Read a FHIR resource",
+        "parameters": [
+          { "name": "resourceType", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "FHIR resource",
+            "content": { "application/fhir+json": { "schema": { "type": "object" } } }
+          },
+          "404": { "description": "Resource not found" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "EmrApiKey": { "type": "apiKey", "in": "header", "name": "x-api-key", "description": "Per-EMR credential. Store it in the EMR backend secret store; do not ship it in browser code." }
+    },
+    "parameters": {
+      "PhilSysId": { "name": "philsysId", "in": "path", "required": true, "schema": { "type": "string" } },
+      "ReferralId": { "name": "referralId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+    },
+    "responses": {
+      "Unauthorized": { "description": "Missing or invalid x-api-key" }
+    },
+    "schemas": {
+      "PatientMatch": {
+        "type": "object",
+        "properties": {
+          "philsys_id": { "type": ["string", "null"] },
+          "fhir_id": { "type": "string" },
+          "given_name": { "type": ["string", "null"] },
+          "family_name": { "type": ["string", "null"] },
+          "gender": { "type": ["string", "null"] },
+          "birth_date": { "type": ["string", "null"], "format": "date" },
+          "active": { "type": "boolean" }
+        }
+      },
+      "ReferralRequest": {
+        "type": "object",
+        "required": ["patientPhilsysId", "toEmr", "practitionerNhwr", "reason"],
+        "properties": {
+          "patientPhilsysId": { "type": "string" },
+          "toEmr": { "type": "string" },
+          "practitionerNhwr": { "type": "string" },
+          "reason": { "type": "string" },
+          "service": { "type": "string" },
+          "priority": { "type": "string", "enum": ["routine", "urgent", "asap", "stat"] },
+          "conditions": { "type": "array", "items": { "$ref": "#/components/schemas/ClinicalItem" } },
+          "observations": { "type": "array", "items": { "$ref": "#/components/schemas/ObservationInput" } },
+          "medications": { "type": "array", "items": { "$ref": "#/components/schemas/MedicationInput" } }
+        }
+      },
+      "BackReferralRequest": {
+        "type": "object",
+        "required": ["practitionerNhwr", "findings"],
+        "properties": {
+          "practitionerNhwr": { "type": "string" },
+          "findings": { "type": "string" },
+          "followUp": { "type": "string" },
+          "conditions": { "type": "array", "items": { "$ref": "#/components/schemas/ClinicalItem" } },
+          "observations": { "type": "array", "items": { "$ref": "#/components/schemas/ObservationInput" } },
+          "medications": { "type": "array", "items": { "$ref": "#/components/schemas/MedicationInput" } }
+        }
+      },
+      "ClinicalItem": {
+        "type": "object",
+        "properties": { "code": { "type": "string" }, "display": { "type": "string" } }
+      },
+      "ObservationInput": {
+        "allOf": [
+          { "$ref": "#/components/schemas/ClinicalItem" },
+          { "type": "object", "properties": { "value": { "type": ["string", "number"] }, "unit": { "type": "string" } } }
+        ]
+      },
+      "MedicationInput": {
+        "type": "object",
+        "required": ["display"],
+        "properties": { "display": { "type": "string" }, "dosage": { "type": "string" } }
+      },
+      "Referral": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "direction": { "type": "string", "enum": ["referral", "back_referral"] },
+          "status": { "type": "string", "enum": ["sent", "received", "completed", "rejected"] },
+          "patient_philsys": { "type": "string" },
+          "patient_name": { "type": "string" },
+          "from_emr": { "type": "string" },
+          "to_emr": { "type": "string" },
+          "reason": { "type": ["string", "null"] }
+        }
+      },
+      "Bundle": { "type": "object", "properties": { "resourceType": { "const": "Bundle" }, "type": { "const": "searchset" }, "entry": { "type": "array" } } }
+    }
+  }
+}

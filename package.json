@@ -1,0 +1,20 @@
+{
+  "name": "shared-health-record",
+  "version": "1.0.0",
+  "description": "Shared Health Record (SHR) on Postgres (embedded PGlite or real Postgres) with FHIR R4 referral / back-referral between EMRs",
+  "private": true,
+  "scripts": {
+    "migrate": "node scripts/migrate.js",
+    "reset": "node scripts/migrate.js --reset",
+    "start": "node server.js",
+    "test": "node scripts/smoke-test.js",
+    "validate:fhir": "node scripts/validate-fhir.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.0",
+    "pg": "^8.23.1"
+  }
+}

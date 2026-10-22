@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shared Health Record</title>
+<style>
+  :root {
+    --bg:#f6f7f9; --card:#fff; --ink:#1b2430; --mute:#667085; --line:#e4e7ec; --accent:#0f766e;
+    --emr1:#2563eb; --emr2:#dc2626; --emr3:#16a34a; --ok:#16a34a; --bad:#dc2626; --warn:#d97706; --code:#0b1220; --codeink:#d6e2f0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0e1116; --card:#161b22; --ink:#e6edf3; --mute:#8b98a9; --line:#2a313c; --accent:#2dd4bf;
+            --emr1:#60a5fa; --emr2:#f87171; --emr3:#4ade80; --code:#0a0d12; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  header { padding:16px 24px 0; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  h1 { font-size:20px; margin:0; }
+  header small { color:var(--mute); }
+  nav { display:flex; gap:4px; padding:12px 24px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  nav button { background:none; border:0; border-bottom:3px solid transparent; padding:8px 14px; font:inherit; color:var(--mute); cursor:pointer; }
+  nav button.active { color:var(--ink); font-weight:600; border-color:var(--tab, var(--accent)); }
+  main { padding:20px 24px 60px; max-width:1300px; margin:0 auto; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
+  .tile, .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .tile b { display:block; font-size:26px; } .tile span { color:var(--mute); font-size:12px; }
+  .card { margin-bottom:16px; } .card h2 { margin:0 0 10px; font-size:15px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; } @media (max-width:900px){ .grid2{grid-template-columns:1fr;} }
+  table { width:100%; border-collapse:collapse; } th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--mute); font-weight:600; font-size:12px; } tr.row:hover { background:color-mix(in srgb,var(--accent) 8%,transparent); cursor:pointer; }
+  pre { background:var(--code); color:var(--codeink); padding:12px; border-radius:8px; overflow:auto; max-height:380px; margin:6px 0; font-size:12px; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:99px; font-size:12px; border:1px solid var(--line); }
+  .pill.sent{color:var(--warn)} .pill.received{color:var(--emr1)} .pill.completed{color:var(--ok)} .pill.rejected{color:var(--bad)}
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; }
+  .bar { display:flex; align-items:center; gap:8px; margin:3px 0; } .bar i { display:block; height:10px; background:var(--accent); border-radius:3px; }
+  label { display:block; font-size:12px; color:var(--mute); margin:8px 0 3px; }
+  input, select, textarea { width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:7px; background:var(--card); color:var(--ink); font:inherit; }
+  textarea { min-height:62px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; }
+  .btn { background:var(--accent); color:#fff; border:0; padding:8px 14px; border-radius:7px; font:inherit; cursor:pointer; margin:10px 6px 0 0; }
+  .btn.ghost { background:none; color:var(--ink); border:1px solid var(--line); } .btn.small { padding:4px 9px; margin:0 4px 0 0; font-size:12px; }
+  .steps div { padding:3px 0; } .ok { color:var(--ok); } .bad { color:var(--bad); }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; } .toolbar > * { width:auto; flex:1; min-width:130px; }
+  .muted { color:var(--mute); } .hint { font-size:11px; color:var(--mute); }
+  .patient-layout { display:grid; grid-template-columns:minmax(240px,320px) 1fr; gap:16px; }
+  .patient-list { display:grid; align-content:start; gap:8px; max-height:600px; overflow:auto; }
+  .patient-item { text-align:left; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:10px 12px; cursor:pointer; }
+  .patient-item.active { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+  .patient-item b,.patient-item span { display:block; } .patient-item span { color:var(--mute); font-size:12px; }
+  .record-groups { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; }
+  .record-group { border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+  .record-group h3 { margin:0 0 8px; font-size:14px; }
+  .record-entry { border-top:1px solid var(--line); padding:8px 0; }
+  .record-entry:first-of-type { border-top:0; }
+  .record-entry summary { cursor:pointer; }
+  @media (max-width:800px) { .patient-layout { grid-template-columns:1fr; } .patient-list { max-height:300px; } }
+</style>
+</head>
+<body>
+<header><h1>Shared Health Record</h1><small>FHIR R4 &middot; Postgres &middot; localhost</small><small id="live" style="margin-left:auto"></small></header>
+<nav id="tabs"></nav>
+<main id="view"></main>
+
+<script src="/patient-prefill.js"></script>
+<script>
+'use strict';
+const { prefillFromBundle } = window.SHRPatientPrefill;
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const fmt = (t) => t ? new Date(t).toLocaleString() : '';
+const COLORS = { EMR1:'var(--emr1)', EMR2:'var(--emr2)', EMR3:'var(--emr3)' };
+let cfg, tab = 'shr', timer, renderVersion = 0;
+const open = new Set();          // expanded raw rows
+const ui = { type:'', patient:'', q:'', patientMatches:{}, selectedPatient:{}, patientLoadSequence:{}, prefilledPatient:{}, selectedShrPatient:'', shrPatientQuery:'', emrRes:{}, record:{}, recordFor:{}, backFor:{}, actionError:{} };
+
+async function api(path, opts = {}, key) {
+  const r = await fetch(path, { ...opts, headers: { 'content-type':'application/json', ...(key ? { 'x-api-key': key } : {}) } });
+  const body = await r.json().catch(() => ({}));
+  return { status: r.status, ok: r.ok, body };
+}
+function requireOk(response, action) {
+  if (!response.ok) throw new Error(`${action}: ${response.body.error || `HTTP ${response.status}`}`);
+  return response.body;
+}
+function showPageError(message) {
+  let error = $('#page-error');
+  if (!error) {
+    $('#view').insertAdjacentHTML('afterbegin', '<div id="page-error" class="card bad" role="alert"></div>');
+    error = $('#page-error');
+  }
+  error.textContent = message;
+}
+
+// ------------------------------------------------------------ tabs
+function renderTabs() {
+  $('#tabs').innerHTML = `<button data-t="shr" class="${tab==='shr'?'active':''}">SHR Dashboard</button>` +
+    cfg.emrs.map((e) => `<button data-t="${e.emr_id}" style="--tab:${COLORS[e.emr_id]}" class="${tab===e.emr_id?'active':''}"><span class="dot" style="background:${COLORS[e.emr_id]}"></span>${esc(e.name)}</button>`).join('');
+  document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => { tab = b.dataset.t; renderTabs(); render(true); });
+}
+
+// ------------------------------------------------------------ SHR dashboard
+async function renderShr(force, version) {
+  const params = new URLSearchParams({ limit: 200, ...(ui.type && { type: ui.type }), ...(ui.patient && { patient: ui.patient }), ...(ui.q && { q: ui.q }) });
+  const patientParams = new URLSearchParams(ui.shrPatientQuery ? { q: ui.shrPatientQuery } : {});
+  const [stats, raw, refs, audit, patientListResponse, patientDetailResponse] = await Promise.all([
+    api('/api/shr/stats'), api('/api/shr/raw?' + params), api('/api/referrals'), api('/api/audit?limit=40'),
+    api('/api/shr/patients?' + patientParams),
+    ui.selectedShrPatient ? api('/api/shr/patients/' + encodeURIComponent(ui.selectedShrPatient)) : Promise.resolve(null),
+  ]);
+  const s = requireOk(stats, 'Load SHR statistics');
+  const resources = requireOk(raw, 'Load FHIR resources');
+  const referrals = requireOk(refs, 'Load referrals');
+  const auditRows = requireOk(audit, 'Load audit trail');
+  const patients = requireOk(patientListResponse, 'Load patients');
+  const patientDetails = patientDetailResponse ? requireOk(patientDetailResponse, 'Load selected patient record') : null;
+  if (version !== renderVersion || tab !== 'shr') return;
+  const types = Object.entries(s.byType || {}).sort((a, b) => b[1] - a[1]), max = Math.max(1, ...types.map((t) => t[1]));
+  const openRefs = Object.entries(s.referrals || {}).filter(([k]) => k.startsWith('referral:') && !k.endsWith('completed')).reduce((n, [, v]) => n + v, 0);
+  const focus = document.activeElement && document.activeElement.id;
+
+  $('#view').innerHTML = `
+  <div class="tiles">
+    <div class="tile"><b>${s.resources}</b><span>FHIR resources</span></div>
+    <div class="tile"><b>${s.versions}</b><span>older versions kept</span></div>
+    <div class="tile"><b>${s.patients}</b><span>patients with records</span></div>
+    <div class="tile"><b>${openRefs}</b><span>open referrals</span></div>
+    <div class="tile"><b>${referrals.filter((r) => r.direction === 'back_referral').length}</b><span>back-referrals</span></div>
+  </div>
+  ${patientDirectory(patients, patientDetails)}
+  <div class="grid2">
+    <div class="card"><h2>Resources by type</h2>${types.length ? types.map(([t, c]) => `<div class="bar"><span style="width:150px">${esc(t)}</span><i style="width:${(c / max) * 55}%"></i><b>${c}</b></div>`).join('') : '<span class="muted">Nothing stored yet. Send a referral from an EMR tab.</span>'}</div>
+    <div class="card"><h2>Referral threads</h2>${refTable(referrals)}</div>
+  </div>
+  <div class="card"><h2>Raw SHR data <span class="muted">(table <code>fhir_resources</code>, jsonb)</span></h2>
+    <div class="toolbar">
+      <select id="f-type"><option value="">All types</option>${types.map(([t]) => `<option ${ui.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select>
+      <select id="f-patient"><option value="">All patients</option>${cfg.patients.map((p) => `<option value="${p.philsys_id}" ${ui.patient===p.philsys_id?'selected':''}>${esc(p.given_name + ' ' + p.family_name)}</option>`).join('')}</select>
+      <input id="f-q" placeholder="Search inside JSON" value="${esc(ui.q)}">
+    </div>
+    <table><thead><tr><th>Type</th><th>FHIR id</th><th>Ver</th><th>Patient</th><th>Source</th><th>Updated</th></tr></thead><tbody>
+    ${resources.map((r) => `<tr class="row" data-id="${r.id}"><td>${esc(r.resource_type)}</td><td>${esc(r.fhir_id)}</td><td>${r.version_id}</td><td>${esc(r.patient_philsys || '')}</td>
+       <td>${r.source_emr ? `<span class="dot" style="background:${COLORS[r.source_emr]}"></span>${r.source_emr}` : ''}</td><td>${fmt(r.updated_at)}</td></tr>
+       ${open.has(r.id) ? `<tr><td colspan="6"><pre>${esc(JSON.stringify(r.resource, null, 2))}</pre></td></tr>` : ''}`).join('') || '<tr><td colspan="6" class="muted">No rows</td></tr>'}
+    </tbody></table></div>
+  <div class="card"><h2>Audit trail</h2><table><thead><tr><th>Time</th><th>EMR</th><th>Action</th><th>Outcome</th><th>Detail</th></tr></thead><tbody>
+    ${auditRows.map((a) => `<tr><td>${fmt(a.ts)}</td><td>${esc(a.emr_id || '')}</td><td>${esc(a.action)}</td><td class="${a.outcome==='ok'?'ok':'bad'}">${a.outcome}</td><td class="muted">${esc(JSON.stringify(a.detail))}</td></tr>`).join('')}
+  </tbody></table></div>`;
+
+  document.querySelectorAll('tr.row').forEach((tr) => tr.onclick = () => { open.has(tr.dataset.id) ? open.delete(tr.dataset.id) : open.add(tr.dataset.id); render(); });
+  $('#f-type').onchange = (e) => { ui.type = e.target.value; render(); };
+  $('#f-patient').onchange = (e) => { ui.patient = e.target.value; render(); };
+  let t; $('#f-q').oninput = (e) => { ui.q = e.target.value; clearTimeout(t); t = setTimeout(render, 350); };
+  let patientSearchTimer;
+  $('#shr-patient-search').oninput = (e) => {
+    ui.shrPatientQuery = e.target.value;
+    clearTimeout(patientSearchTimer);
+    patientSearchTimer = setTimeout(render, 250);
+  };
+  document.querySelectorAll('[data-shr-patient]').forEach((button) => button.onclick = () => {
+    ui.selectedShrPatient = button.dataset.shrPatient;
+    render();
+  });
+  if (focus === 'f-q' || focus === 'shr-patient-search') {
+    const input = $('#' + focus);
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+}
+function patientDirectory(patients, details) {
+  const selected = ui.selectedShrPatient;
+  const patient = details?.patient;
+  const resources = details?.record?.entry?.map((entry) => entry.resource).filter((resource) => resource.resourceType !== 'Patient') || [];
+  const groups = resources.reduce((result, resource) => {
+    (result[resource.resourceType] ||= []).push(resource);
+    return result;
+  }, {});
+  const recordGroups = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([type, items]) => `
+    <section class="record-group"><h3>${esc(type)} <span class="muted">(${items.length})</span></h3>
+      ${items.map((resource) => `<details class="record-entry">
+        <summary><b>${esc(resourceSummary(resource))}</b><div class="hint">${esc(resource.status || '')}${resource.meta?.lastUpdated ? ` · ${fmt(resource.meta.lastUpdated)}` : ''}</div></summary>
+        <pre>${esc(JSON.stringify(resource, null, 2))}</pre>
+      </details>`).join('')}
+    </section>`).join('');
+
+  return `<section class="card">
+    <h2>Patient records <span class="muted">(${patients.length} patients)</span></h2>
+    <div class="patient-layout">
+      <div>
+        <label for="shr-patient-search">Find a patient by name or PhilSys ID</label>
+        <input id="shr-patient-search" value="${esc(ui.shrPatientQuery)}" placeholder="Search patients in the SHR">
+        <div class="patient-list" style="margin-top:10px">
+          ${patients.length ? patients.map((item) => `<button type="button" class="patient-item ${item.philsys_id === selected ? 'active' : ''}" data-shr-patient="${esc(item.philsys_id)}">
+            <b>${esc([item.given_name, item.family_name].filter(Boolean).join(' ') || 'Unnamed patient')}</b>
+            <span>${esc(item.philsys_id)} · ${esc(item.gender || 'gender not recorded')}${item.birth_date ? ` · DOB ${esc(item.birth_date)}` : ''}</span>
+            <span>${item.resources} resources · ${item.referrals} referrals${item.active ? '' : ' · inactive'}</span>
+          </button>`).join('') : '<span class="muted">No patient records match this search.</span>'}
+        </div>
+      </div>
+      <div>
+        ${patient ? `<h3 style="margin-top:0">${esc(patientDisplayName(patient))}</h3>
+          <div class="muted">${esc(patient.identifier?.map((identifier) => identifier.value).filter(Boolean).join(' · ') || patient.id || '')}
+            ${patient.gender ? ` · ${esc(patient.gender)}` : ''}${patient.birthDate ? ` · DOB ${esc(patient.birthDate)}` : ''}</div>
+          <div class="tiles" style="margin-top:12px">
+            <div class="tile"><b>${resources.length}</b><span>clinical and workflow resources</span></div>
+            <div class="tile"><b>${details.referrals.length}</b><span>referral records</span></div>
+          </div>
+          <h3>Clinical and workflow records</h3>
+          ${recordGroups ? `<div class="record-groups">${recordGroups}</div>` : '<p class="muted">No additional records are stored for this patient.</p>'}
+          <h3 style="margin-top:18px">Referral history</h3>${refTable(details.referrals)}
+        ` : '<p class="muted">Select a patient to view their demographics, organized records, and referral history.</p>'}
+      </div>
+    </div>
+  </section>`;
+}
+function patientDisplayName(patient) {
+  const name = patient.name?.[0];
+  return name ? [name.given?.join(' '), name.family].filter(Boolean).join(' ') : 'Unnamed patient';
+}
+function resourceSummary(resource) {
+  const coding = resource.code?.coding?.find((item) => item.display || item.code);
+  const code = resource.code?.text || coding?.display || coding?.code;
+  if (resource.resourceType === 'Observation') {
+    const value = resource.valueQuantity
+      ? `${resource.valueQuantity.value ?? ''} ${resource.valueQuantity.unit || resource.valueQuantity.code || ''}`.trim()
+      : resource.valueString || resource.valueCodeableConcept?.text || '';
+    return [code || 'Observation', value].filter(Boolean).join(': ');
+  }
+  if (resource.resourceType === 'MedicationRequest' || resource.resourceType === 'MedicationStatement') {
+    return resource.medicationCodeableConcept?.text || resource.medicationReference?.display || 'Medication';
+  }
+  if (resource.resourceType === 'Communication') {
+    return resource.payload?.map((item) => item.contentString || item.content?.text).filter(Boolean).join(' · ') || 'Communication';
+  }
+  if (resource.resourceType === 'Encounter') {
+    return resource.reasonCode?.map((item) => item.text).filter(Boolean).join(' · ') || code || 'Encounter';
+  }
+  if (resource.resourceType === 'ServiceRequest') return code || resource.reasonCode?.[0]?.text || 'Service request';
+  if (resource.resourceType === 'Condition' || resource.resourceType === 'Observation') return code || resource.resourceType;
+  return resource.code?.text || resource.resourceType;
+}
+function refTable(list) {
+  if (!list.length) return '<span class="muted">No referrals yet.</span>';
+  return `<table><thead><tr><th>Patient</th><th>Flow</th><th>Status</th></tr></thead><tbody>${list.slice(0, 12).map((r) => `
+    <tr><td>${esc(r.patient_name)}<div class="hint">${esc(r.reason || '')}</div></td>
+    <td>${r.direction === 'back_referral' ? 'back' : 'refer'}: <span style="color:${COLORS[r.from_emr]}">${r.from_emr}</span> &rarr; <span style="color:${COLORS[r.to_emr]}">${r.to_emr}</span></td>
+    <td><span class="pill ${r.status}">${r.status}</span></td></tr>`).join('')}</tbody></table>`;
+}
+
+// ------------------------------------------------------------ EMR simulator
+const EXAMPLE = {
+  reason: 'Suspected acute appendicitis, needs surgical evaluation', service: 'General surgery consult', priority: 'urgent',
+  conditions: 'K35.80 | Acute appendicitis', observations: '8310-5 | Body temperature | 38.4 | Cel\n8867-4 | Heart rate | 102 | /min',
+  medications: 'Paracetamol 500mg | 1 tab every 6 hours',
+};
+const lines = (t) => t.split('\n').map((l) => l.split('|').map((x) => x.trim())).filter((a) => a[0]);
+const parseConditions = (t) => lines(t).map((a) => a.length > 1 ? { code: a[0], display: a[1] } : { display: a[0] });
+const parseObs = (t) => lines(t).map((a) => ({ code: a[0], display: a[1] || a[0], value: a[2] ?? '', unit: a[3] || '' }));
+const parseMeds = (t) => lines(t).map((a) => ({ display: a[0], dosage: a[1] || '' }));
+
+async function renderEmr(id, version) {
+  const emr = cfg.emrs.find((e) => e.emr_id === id), worker = cfg.workers.find((w) => w.nhfr_code === emr.nhfr_code);
+  const others = cfg.emrs.filter((e) => e.emr_id !== id);
+  const [inboxResponse, outboxResponse] = await Promise.all([api('/api/inbox', {}, emr.api_key), api('/api/outbox', {}, emr.api_key)]);
+  const inbox = requireOk(inboxResponse, 'Load inbox');
+  const outbox = requireOk(outboxResponse, 'Load outbox');
+  if (version !== renderVersion || tab !== id) return;
+  // Don't clobber a form the user is typing in
+  if (!document.getElementById('emr-form-' + id)) {
+    $('#view').innerHTML = `
+    <div class="grid2">
+      <div class="card" style="border-top:4px solid ${COLORS[id]}"><h2>New referral from ${esc(emr.name)}</h2>
+        <form id="emr-form-${id}">
+          <label>Find existing patient by name or ID</label><input name="patientSearch" autocomplete="off" placeholder="Search records in the Shared Health Record">
+          <div id="patient-matches-${id}" role="listbox" aria-label="Matching patients"></div>
+          <div id="patient-preview-${id}" class="hint" aria-live="polite"></div>
+          <div class="row2"><div><label>Patient (PhilSys)</label><select name="patient"><option value="" selected disabled>Select a patient</option>${cfg.patients.map((p) => `<option value="${p.philsys_id}">${esc(p.given_name + ' ' + p.family_name)} &middot; ${p.philsys_id}</option>`).join('')}</select></div>
+          <div><label>Refer to</label><select name="toEmr">${others.map((e) => `<option value="${e.emr_id}">${esc(e.name)}</option>`).join('')}</select></div></div>
+          <div class="row2"><div><label>Referring health worker (NHWR)</label><input name="nhwr" value="${worker ? worker.nhwr_id : ''}"></div>
+          <div><label>Priority</label><select name="priority"><option>routine</option><option>urgent</option><option>asap</option><option>stat</option></select></div></div>
+          <label>Service requested</label><input name="service">
+          <label>Reason for referral *</label><input name="reason">
+          <label>Conditions &mdash; one per line: <code>ICD-10 | description</code></label><textarea name="conditions"></textarea>
+          <label>Observations &mdash; <code>LOINC | name | value | unit</code></label><textarea name="observations"></textarea>
+          <label>Current medications &mdash; <code>name | dosage</code></label><textarea name="medications"></textarea>
+          <div class="hint" id="patient-prefill-status-${id}" role="status" aria-live="polite"></div>
+          <button class="btn small ghost" type="button" id="clear-prefill-${id}" hidden>Clear imported clinical data</button>
+          <button class="btn" type="submit">Send referral</button><button class="btn ghost" type="button" id="ex-${id}">Fill example</button>
+        </form><div id="res-${id}" class="steps"></div></div>
+      <div id="boxes-${id}"></div>
+    </div>`;
+    const form = $('#emr-form-' + id);
+    let searchTimer;
+    $('#clear-prefill-' + id).onclick = () => {
+      clearImportedPatientData(form, id);
+      $('#patient-prefill-status-' + id).textContent = 'Imported clinical data cleared. The selected patient remains unchanged.';
+      $('#clear-prefill-' + id).hidden = true;
+    };
+    form.patientSearch.oninput = () => {
+      clearTimeout(searchTimer);
+      ui.patientLoadSequence[id] = (ui.patientLoadSequence[id] || 0) + 1;
+      clearImportedPatientData(form, id);
+      form.patient.value = '';
+      delete ui.selectedPatient[id];
+      $('#patient-preview-' + id).textContent = '';
+      $('#patient-prefill-status-' + id).textContent = '';
+      $('#patient-prefill-status-' + id).classList.remove('bad');
+      const term = form.patientSearch.value.trim();
+      if (term.length < 2) {
+        $('#patient-matches-' + id).innerHTML = '';
+        return;
+      }
+      $('#patient-matches-' + id).textContent = 'Searching Shared Health Record...';
+      searchTimer = setTimeout(async () => {
+        try {
+          const matches = requireOk(await api('/api/patients/search?q=' + encodeURIComponent(term), {}, emr.api_key), 'Search shared patient records');
+          if (tab !== id || form.patientSearch.value.trim() !== term) return;
+          ui.patientMatches[id] = matches;
+          $('#patient-matches-' + id).innerHTML = matches.length
+            ? matches.map((p, i) => `<button class="btn small ghost" type="button" role="option" data-patient-match="${i}">${esc([p.given_name, p.family_name].filter(Boolean).join(' ') || 'Unnamed patient')} &middot; ${esc(p.philsys_id || p.fhir_id)}</button>`).join('')
+            : '<span class="hint">No matching patient record in the Shared Health Record.</span>';
+        } catch (error) {
+          if (tab === id) $('#patient-matches-' + id).innerHTML = `<span class="bad" role="alert">${esc(error.message)}</span>`;
+        }
+      }, 250);
+    };
+    $('#patient-matches-' + id).onclick = async (event) => {
+      const button = event.target.closest('[data-patient-match]');
+      if (!button) return;
+      const patient = (ui.patientMatches[id] || [])[Number(button.dataset.patientMatch)];
+      if (!patient) return;
+      const patientId = patient.philsys_id || patient.fhir_id;
+      let option = [...form.patient.options].find((item) => item.value === patientId);
+      if (!option) {
+        option = new Option(`${[patient.given_name, patient.family_name].filter(Boolean).join(' ')} · ${patientId}`, patientId);
+        form.patient.add(option);
+      }
+      form.patient.value = patientId;
+      ui.selectedPatient[id] = patientId;
+      $('#patient-preview-' + id).textContent = `Selected from Shared Health Record · ${[patient.gender, patient.birth_date].filter(Boolean).join(' · ') || 'demographics unavailable'}${patient.active === false ? ' · inactive record' : ''}`;
+      $('#patient-prefill-status-' + id).textContent = 'Loading existing clinical data from the Shared Health Record...';
+      $('#patient-prefill-status-' + id).classList.remove('bad');
+      form.patientSearch.value = `${[patient.given_name, patient.family_name].filter(Boolean).join(' ')} · ${patientId}`;
+      $('#patient-matches-' + id).innerHTML = '';
+      const sequence = (ui.patientLoadSequence[id] || 0) + 1;
+      ui.patientLoadSequence[id] = sequence;
+      try {
+        const record = requireOk(await api(`/api/patients/${encodeURIComponent(patientId)}/record`, {}, emr.api_key), 'Load shared patient record');
+        if (tab !== id || ui.patientLoadSequence[id] !== sequence || ui.selectedPatient[id] !== patientId || !form.isConnected) return;
+        const prefill = prefillFromBundle(record);
+        form.conditions.value = prefill.conditions;
+        form.observations.value = prefill.observations;
+        form.medications.value = prefill.medications;
+        ui.prefilledPatient[id] = patientId;
+        $('#clear-prefill-' + id).hidden = false;
+        const count = prefill.counts;
+        $('#patient-prefill-status-' + id).textContent =
+          `Loaded from SHR${prefill.updatedAt ? ` (record updated ${fmt(prefill.updatedAt)})` : ''}: ${count.conditions} active conditions, ${count.observations} latest observations, ${count.medications} active medications. Review dates and relevance; edit or clear before sending.`;
+      } catch (error) {
+        if (tab === id && ui.patientLoadSequence[id] === sequence) {
+          $('#patient-prefill-status-' + id).textContent = `Could not load SHR clinical data: ${error.message}`;
+          $('#patient-prefill-status-' + id).classList.add('bad');
+        }
+      }
+    };
+    form.patient.onchange = () => {
+      if (ui.selectedPatient[id] !== form.patient.value) {
+        ui.patientLoadSequence[id] = (ui.patientLoadSequence[id] || 0) + 1;
+        clearImportedPatientData(form, id);
+        delete ui.selectedPatient[id];
+        form.patientSearch.value = '';
+        $('#patient-preview-' + id).textContent = '';
+        $('#patient-prefill-status-' + id).textContent = '';
+        $('#patient-prefill-status-' + id).classList.remove('bad');
+      }
+    };
+    $('#ex-' + id).onclick = () => { const f = $('#emr-form-' + id); for (const k of ['reason','service','priority','conditions','observations','medications']) f[k].value = EXAMPLE[k]; };
+    $('#emr-form-' + id).onsubmit = async (e) => {
+      e.preventDefault(); const f = e.target;
+      try {
+        const r = await api('/api/referrals', { method: 'POST', body: JSON.stringify({
+          patientPhilsysId: f.patient.value, toEmr: f.toEmr.value, practitionerNhwr: f.nhwr.value.trim(), reason: f.reason.value, service: f.service.value,
+          priority: f.priority.value, conditions: parseConditions(f.conditions.value), observations: parseObs(f.observations.value), medications: parseMeds(f.medications.value) }) }, emr.api_key);
+        ui.emrRes[id] = r; showSteps(id);
+        if (r.ok) await render();
+      } catch (error) {
+        ui.actionError[id] = error.message;
+        await render();
+      }
+    };
+    showSteps(id);
+  }
+  $('#boxes-' + id).innerHTML = inboxHtml(id, inbox) + outboxHtml(outbox);
+  wireBoxes(id, emr);
+}
+function clearImportedPatientData(form, id) {
+  if (ui.prefilledPatient[id]) {
+    form.conditions.value = '';
+    form.observations.value = '';
+    form.medications.value = '';
+    delete ui.prefilledPatient[id];
+  }
+  const clearButton = $('#clear-prefill-' + id);
+  if (clearButton) clearButton.hidden = true;
+}
+function showSteps(id) {
+  const r = ui.emrRes[id]; if (!r) return;
+  const b = r.body;
+  $('#res-' + id).innerHTML = `<h2 style="margin:14px 0 4px;font-size:14px">Orchestrator trail ${r.ok ? '<span class="ok">&mdash; stored</span>' : '<span class="bad">&mdash; rejected</span>'}</h2>` +
+    (b.steps || []).map((s) => `<div class="${s.ok ? 'ok' : 'bad'}">${s.ok ? '&#10003;' : '&#10007;'} ${esc(s.step)} <span class="muted">${esc(s.detail || '')}</span></div>`).join('') +
+    (!b.steps ? `<div class="bad">${esc(b.error || 'Request failed')}</div>` : '');
+}
+function inboxHtml(id, list) {
+  const patientRecord = ui.record[ui.recordFor[id]];
+  return `<div class="card">${ui.actionError[id] ? `<div class="bad" role="alert">${esc(ui.actionError[id])}</div>` : ''}<h2>Inbox <span class="muted">(sent to this EMR)</span></h2>${list.length ? list.map((r) => `
+    <div style="padding:8px 0;border-bottom:1px solid var(--line)">
+      <b>${esc(r.patient_name)}</b> <span class="pill ${r.status}">${r.status}</span>
+      <div class="hint">${r.direction === 'back_referral' ? 'BACK-REFERRAL' : 'REFERRAL'} from <span style="color:${COLORS[r.from_emr]}">${r.from_emr}</span> &middot; ${fmt(r.created_at)}</div>
+      <div>${esc(r.reason || '')}</div>
+      <div style="margin-top:6px">
+        ${r.direction === 'referral' && r.status === 'sent' ? `<button class="btn small ghost" data-act="receive" data-id="${r.id}">Mark received</button>` : ''}
+        <button class="btn small ghost" data-act="record" data-patient="${r.patient_philsys}">Get Patient Record</button>
+        ${r.direction === 'referral' && r.status !== 'completed' ? `<button class="btn small" data-act="backform" data-id="${r.id}">Send back-referral</button>` : ''}
+      </div>
+      <div id="back-${r.id}">${ui.backFor[r.id] ? backForm(id, r.id) : ''}</div>
+    </div>`).join('') : '<span class="muted">No referrals received.</span>'}
+    <div id="rec-${id}">${patientRecord ? `<h2 style="margin-top:14px">Patient record for ${esc(ui.recordFor[id])} (FHIR searchset, ${patientRecord.total} resources)</h2><pre>${esc(JSON.stringify(patientRecord, null, 2))}</pre>` : ''}</div></div>`;
+}
+function backForm(id, refId) {
+  return `<form data-back="${refId}">
+    <label>Findings / outcome *</label><input name="findings"><label>Follow-up plan</label><input name="followUp">
+    <label>Diagnoses &mdash; <code>ICD-10 | description</code></label><textarea name="conditions"></textarea>
+    <label>Results &mdash; <code>LOINC | name | value | unit</code></label><textarea name="observations"></textarea>
+    <label>Medications prescribed &mdash; <code>name | dosage</code></label><textarea name="medications"></textarea>
+    <button class="btn small" type="submit">Send back</button><button class="btn small ghost" type="button" data-act="backex">Fill example</button>
+    <div class="steps" id="backres-${refId}"></div></form>`;
+}
+function outboxHtml(list) {
+  return `<div class="card"><h2>Outbox <span class="muted">(sent by this EMR)</span></h2>${list.length ? `<table><tbody>${list.map((r) => `
+    <tr><td>${esc(r.patient_name)}<div class="hint">${esc(r.reason || '')}</div></td><td>${r.direction === 'back_referral' ? 'back &rarr; ' : '&rarr; '}<span style="color:${COLORS[r.to_emr]}">${r.to_emr}</span></td><td><span class="pill ${r.status}">${r.status}</span></td></tr>`).join('')}</tbody></table>` : '<span class="muted">Nothing sent yet.</span>'}</div>`;
+}
+function wireBoxes(id, emr) {
+  document.querySelectorAll(`#boxes-${id} [data-act]`).forEach((b) => b.onclick = async () => {
+    const act = b.dataset.act;
+    try {
+      ui.actionError[id] = '';
+      if (act === 'receive') {
+        requireOk(await api(`/api/referrals/${b.dataset.id}/receive`, { method: 'POST' }, emr.api_key), 'Mark referral received');
+        await render();
+      }
+      if (act === 'record') {
+        ui.record[b.dataset.patient] = requireOk(await api(`/api/patients/${b.dataset.patient}/record`, {}, emr.api_key), 'Load patient record');
+        ui.recordFor[id] = b.dataset.patient;
+        await render();
+      }
+      if (act === 'backform') { ui.backFor[b.dataset.id] = !ui.backFor[b.dataset.id]; await render(); }
+      if (act === 'backex') { const f = b.closest('form'); f.findings.value = 'Appendectomy performed, recovering well'; f.followUp.value = 'Wound check at RHU in 7 days';
+        f.conditions.value = 'K35.80 | Acute appendicitis, resolved'; f.observations.value = '8310-5 | Body temperature | 36.8 | Cel'; f.medications.value = 'Amoxicillin 500mg | 1 cap every 8 hours for 5 days'; }
+    } catch (error) {
+      ui.actionError[id] = error.message;
+      await render();
+    }
+  });
+  document.querySelectorAll(`#boxes-${id} form[data-back]`).forEach((f) => f.onsubmit = async (e) => {
+    e.preventDefault(); const worker = cfg.workers.find((w) => w.nhfr_code === emr.nhfr_code);
+    try {
+      const r = await api(`/api/referrals/${f.dataset.back}/back-referral`, { method: 'POST', body: JSON.stringify({
+      practitionerNhwr: worker.nhwr_id, findings: f.findings.value, followUp: f.followUp.value,
+      conditions: parseConditions(f.conditions.value), observations: parseObs(f.observations.value), medications: parseMeds(f.medications.value) }) }, emr.api_key);
+      if (r.ok) { delete ui.backFor[f.dataset.back]; await render(); }
+      else $('#backres-' + f.dataset.back).innerHTML = (r.body.steps || []).map((s) => `<div class="${s.ok ? 'ok' : 'bad'}">${s.ok ? '&#10003;' : '&#10007;'} ${esc(s.step)} <span class="muted">${esc(s.detail || '')}</span></div>`).join('') || `<div class="bad">${esc(r.body.error)}</div>`;
+    } catch (error) {
+      $('#backres-' + f.dataset.back).innerHTML = `<div class="bad" role="alert">${esc(error.message)}</div>`;
+    }
+  });
+}
+
+// ------------------------------------------------------------ boot
+async function render(force) {
+  const version = ++renderVersion;
+  const currentTab = tab;
+  try {
+    if (currentTab === 'shr') await renderShr(force, version); else { if (force) $('#view').innerHTML = ''; await renderEmr(currentTab, version); }
+    if (version !== renderVersion || currentTab !== tab) return;
+    $('#page-error')?.remove();
+    $('#live').textContent = 'updated ' + new Date().toLocaleTimeString();
+  } catch (e) { $('#live').textContent = 'error: ' + e.message; showPageError(e.message); }
+}
+(async () => {
+  try {
+    cfg = requireOk(await api('/api/demo/config'), 'Load dashboard configuration');
+    renderTabs(); await render(true);
+    timer = setInterval(() => { const a = document.activeElement; if (a && /INPUT|TEXTAREA|SELECT/.test(a.tagName) && !['f-q', 'shr-patient-search'].includes(a.id)) return; render(); }, 4000);
+  } catch (error) {
+    $('#live').textContent = 'error: ' + error.message;
+    showPageError(error.message);
+  }
+})();
+</script>
+</body>
+</html>
