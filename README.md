@@ -16,12 +16,14 @@ npm start         # http://localhost:3000
 Open http://localhost:3000. Optional, in a second terminal: `npm test` (end-to-end checks) and `npm run reset` (wipe referrals / FHIR data, keep registries). To start completely fresh, stop the server and delete the `data/` folder.
 
 ### Using real Postgres instead
-Set `DATABASE_URL`; the app uses a reusable `pg` connection pool (the same SQL runs on PGlite and real Postgres):
+The app uses a reusable `pg` connection pool (the same SQL runs on PGlite and real Postgres). To keep credentials out of source control, copy `.env.example` to `.env` and set `DATABASE_URL` in `.env`:
 ```bash
-export DATABASE_URL=postgresql://postgres:PASSWORD@localhost:5432/shr   # PowerShell: $env:DATABASE_URL="..."
-npm run migrate && npm start
+cp .env.example .env
+# Edit .env and set DATABASE_URL to your PostgreSQL connection string.
+npm run migrate
+npm start
 ```
-For hosted Supabase, use the database connection string and pooler settings recommended for your deployment.
+In PowerShell, use `Copy-Item .env.example .env` before editing the file. `.env` is ignored by Git. For hosted Supabase, copy the **Session pooler** URI from the project's Connect dialog and append `?sslmode=require` if it is not already present. Do not use Supabase API keys as a database password. Keep the local `data/` directory as your rollback copy; switching to external PostgreSQL does not copy or delete PGlite data.
 
 ### Using Supabase
 The schema is a standard Supabase migration (`supabase/migrations/`), so either:

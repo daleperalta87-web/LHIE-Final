@@ -5,6 +5,8 @@
 // SQL must return exactly one value (use json_agg / to_jsonb). Reference the parameter as :'p'.
 const path = require('node:path');
 
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const DATA_DIR = process.env.SHR_DATA_DIR || path.join(__dirname, '..', 'data');
 const EMBEDDED = !DATABASE_URL;
