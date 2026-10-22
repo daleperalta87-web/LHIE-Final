@@ -13,7 +13,7 @@ npm install       # installs the app dependencies
 npm start         # http://localhost:3000
 ```
 
-Open http://localhost:3000. Optional, in a second terminal: `npm test` (21-check end-to-end test) and `npm run reset` (wipe referrals / FHIR data, keep registries). To start completely fresh, stop the server and delete the `data/` folder.
+Open http://localhost:3000. Optional, in a second terminal: `npm test` (end-to-end checks) and `npm run reset` (wipe referrals / FHIR data, keep registries). To start completely fresh, stop the server and delete the `data/` folder.
 
 ### Using real Postgres instead
 Set `DATABASE_URL`; the app uses a reusable `pg` connection pool (the same SQL runs on PGlite and real Postgres):
@@ -30,6 +30,11 @@ The schema is a standard Supabase migration (`supabase/migrations/`), so either:
 
 All tables have RLS enabled with no policies, so the Supabase public API (anon/authenticated) cannot read them.
 Only this server (connecting as the table owner) can. Do not expose them through PostgREST without writing policies.
+
+### FHIR requirements catalog
+[`schema/shared_health_record_schema.csv`](schema/shared_health_record_schema.csv) is the source requirements catalog: 142 element-level requirements across 27 FHIR R4 resource types. The migration imports it into `shr_profile_requirements`, which is available in Supabase's Table Editor and Schema Visualizer. The catalog preserves each element path, cardinality, datatype, requirement level, guidance, reference targets, and source-file SHA-256. Row-level security is enabled with no public policies.
+
+This catalog documents SHR requirements; it does not by itself make the runtime validator enforce every listed resource or certify full FHIR/profile conformance. The runtime validator remains limited to the resources and rules implemented by this demo.
 
 ## What's in the dashboard (`/`)
 - **SHR Dashboard** - counts, a searchable **Patient records** directory with demographics, FHIR resources grouped by type and referral history, resources by type, referral threads, **raw `fhir_resources` rows** (click a row for the full JSON; filter by type, patient or text), and audit trail.
